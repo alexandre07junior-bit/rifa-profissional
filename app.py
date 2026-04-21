@@ -1,84 +1,56 @@
 import streamlit as st
 import pandas as pd
-import random
-import time
-import os
 
-# --- CONFIGURAÇÃO INICIAL (Obrigatório vir no topo) ---
-st.set_page_config(page_title="Rifa Oficial", layout="wide")
+# 1. Configuração Otimizada para Celular
+st.set_page_config(
+    page_title="Rifa Profissional",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
-# Inicialização de dados
-def carregar_dados():
-    if os.path.exists('vendas.csv'):
-        df = pd.read_csv('vendas.csv')
-        # Converte o CSV de volta para dicionário
-        vendas = {}
-        for _, row in df.iterrows():
-            vendas[row['numero']] = {"nome": row['nome'], "tel": row['tel']}
-        return vendas
-    return {}
-
-def salvar_dados(vendas_dict):
-    lista = [{'numero': k, 'nome': v['nome'], 'tel': v['tel']} for k, v in vendas_dict.items()]
-    pd.DataFrame(lista).to_csv('vendas.csv', index=False)
-
-if 'vendas' not in st.session_state: 
-    st.session_state.vendas = carregar_dados()
-if 'carrinho' not in st.session_state: 
-    st.session_state.carrinho = []
-
-# --- CSS PARA PERSONALIZAÇÃO ---
+# 2. CSS para forçar o layout "Mobile-First"
 st.markdown("""
     <style>
-    .timer-text { font-size: 80px; font-weight: bold; color: #333; text-align: center; }
+    /* Ajusta as margens para não ficar espaço sobrando nas laterais */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    /* Deixa os botões esticados na largura total do celular */
+    div.stButton > button {
+        width: 100%;
+        height: 3.5rem;
+        font-size: 1.2rem;
+        background-color: #007BFF;
+        color: white;
+    }
+    /* Melhora a legibilidade do texto no mobile */
+    h1, h2, h3 {
+        text-align: center;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR (CHECKOUT) ---
-st.sidebar.title("🛒 Checkout")
-valor_total = len(st.session_state.carrinho) * 2
-st.sidebar.write(f"Números: {len(st.session_state.carrinho)}")
-st.sidebar.write(f"Total: R$ {valor_total},00")
+# 3. Estrutura do Site (Substitua pelos seus dados)
+st.title("🚗 Rifa Automotiva")
 
-with st.sidebar.form("form_compra", clear_on_submit=True):
-    nome = st.text_input("Nome Completo")
-    tel = st.text_input("WhatsApp")
-    if st.form_submit_button("Confirmar Compra"):
-        if nome and tel and st.session_state.carrinho:
-            for n in st.session_state.carrinho:
-                st.session_state.vendas[n] = {"nome": nome, "tel": tel}
-            salvar_dados(st.session_state.vendas)
-            st.session_state.carrinho = []
-            st.rerun()
-        else:
-            st.error("Selecione números e preencha os dados!")
+# Use 'use_container_width=True' para a imagem ocupar a largura da tela
+# st.image("sua_imagem.jpg", use_container_width=True)
 
-# --- CORPO PRINCIPAL ---
-st.title("💰 Sorteio Oficial")
-st.write(f"Vendidos: {len(st.session_state.vendas)}/500")
+st.subheader("Garanta seu número!")
+st.write("Participe da rifa e concorra a um prêmio exclusivo.")
 
-cols = st.columns(10)
-for i in range(1, 501):
-    col = cols[(i-1) % 10]
-    if i in st.session_state.vendas:
-        col.button(f"{i}", disabled=True)
-    else:
-        label = f"✅ {i}" if i in st.session_state.carrinho else f"{i}"
-        if col.button(label, key=f"btn_{i}"):
-            if i in st.session_state.carrinho: st.session_state.carrinho.remove(i)
-            else: st.session_state.carrinho.append(i)
-            st.rerun()
+# Botão principal (Fácil de clicar no Android)
+if st.button("Reservar Número pelo WhatsApp"):
+    st.write("Redirecionando para o seu atendimento...")
+    # Coloque aqui o link do seu WhatsApp
+    st.link_button("Ir para o WhatsApp", "https://wa.me/5537991360517")
 
-# --- ADMIN ---
-with st.expander("🔐 Painel Admin"):
-    if st.text_input("Senha", type="password") == "1234":
-        st.dataframe(pd.DataFrame.from_dict(st.session_state.vendas, orient='index'))
-        if st.button("Sortear (Cronômetro)"):
-            holder = st.empty()
-            for _ in range(50):
-                n = random.randint(1, 500)
-                holder.markdown(f"<div class='timer-text'>{n:03d}</div>", unsafe_allow_html=True)
-                time.sleep(0.1)
-            vencedor = random.randint(1, 500)
-            holder.markdown(f"<div class='timer-text' style='color: green;'>{vencedor:03d}</div>", unsafe_allow_html=True)
-            st.balloons()
+# Exemplo de lista (Um item embaixo do outro, nada de colunas complexas)
+st.divider()
+st.write("---")
+st.write("📜 **Regulamento:**")
+st.write("1. Pagamento via PIX.")
+st.write("2. Envie o comprovante no WhatsApp.")
