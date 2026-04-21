@@ -1,67 +1,119 @@
-import streamlit as st
-
-# Configuração de Layout Mobile-First
-st.set_page_config(page_title="Rifa R$ 500", layout="centered", initial_sidebar_state="collapsed")
-
-# CSS para Design Profissional e Mobile
-st.markdown("""
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteio Premiado</title>
     <style>
-    .stApp { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
-    .header-box { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
+        :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
+        body { font-family: sans-serif; margin: 0; padding: 10px; background: #f4f4f4; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+        .number { padding: 15px; background: white; border: 1px solid #ccc; cursor: pointer; border-radius: 8px; font-weight: bold; }
+        .number.sold { background: #ccc; cursor: not-allowed; }
+        .number.selected { background: var(--primary); color: white; }
+        #checkout, #admin-panel { margin-top: 20px; padding: 20px; background: white; border-radius: 10px; display: none; }
+        button { padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin: 5px; }
+        .btn-pix { background: var(--success); color: white; width: 100%; }
+        input { width: 90%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
     </style>
-""", unsafe_allow_html=True)
+</head>
+<body>
 
-# Lógica de Estado
-if 'selecionados' not in st.session_state:
-    st.session_state.selecionados = []
+    <h1>Escolha seu Número</h1>
+    <div id="grid" class="grid"></div>
 
-# --- CABEÇALHO ---
-st.markdown('<div class="header-box"><h1>💰 Rifa de R$ 500,00</h1><p>Sorteio pela Loteria Federal</p></div>', unsafe_allow_html=True)
+    <div id="checkout">
+        <h2>Finalizar Compra</h2>
+        <input type="text" id="name" placeholder="Nome Completo" required>
+        <input type="tel" id="phone" placeholder="WhatsApp (DDD + Número)" required>
+        <p>Valor: R$ 5,00</p>
+        <button class="btn-pix" onclick="confirmPurchase()">Pagar via Pix</button>
+    </div>
 
-# --- NAVEGAÇÃO ---
-tab1, tab2, tab3 = st.tabs(["🔢 Números", "📋 Regras", "💳 Pagamento"])
+    <div id="pix-area" style="display:none; padding: 20px; background: #e9ecef;">
+        <p>Chave Pix: <strong>01969189606</strong></p>
+        <button onclick="copyPix()">Copiar Chave</button>
+    </div>
 
-with tab1:
-    st.subheader("Escolha seus números:")
-    cols = st.columns(5)
-    for i in range(1, 101):
-        with cols[(i-1) % 5]:
-            btn_type = "primary" if i in st.session_state.selecionados else "secondary"
-            if st.button(str(i), key=f"btn_{i}", type=btn_type):
-                if i in st.session_state.selecionados:
-                    st.session_state.selecionados.remove(i)
-                else:
-                    st.session_state.selecionados.append(i)
-                st.rerun()
+    <div style="margin-top: 30px;">
+        <button onclick="showAdmin()">Acessar ADM</button>
+    </div>
 
-with tab2:
-    st.subheader("Regulamento")
-    st.markdown("""
-    * **Prêmio:** R$ 500,00 no PIX.
-    * **Valor:** R$ 10,00 por número.
-    * **Sorteio:** Realizado após a venda total das cotas.
-    * **Instrução:** Copie a chave PIX, realize o pagamento e envie o comprovante no WhatsApp.
-    """)
+    <div id="admin-panel">
+        <h3>Painel Administrativo</h3>
+        <input type="password" id="admin-pass" placeholder="Senha">
+        <button onclick="loginAdmin()">Entrar</button>
+        <div id="admin-content" style="display:none;">
+            <div id="report"></div>
+            <button onclick="startDraw()" style="background: var(--danger); color: white;">Realizar Sorteio</button>
+        </div>
+    </div>
 
-with tab3:
-    st.subheader("Checkout")
-    if st.session_state.selecionados:
-        nums = sorted(st.session_state.selecionados)
-        total = len(nums) * 10
-        
-        st.write(f"**Números escolhidos:** {', '.join(map(str, nums))}")
-        st.write(f"**Total a pagar:** R$ {total},00")
-        
-        st.divider()
-        st.write("### 1. Copie a Chave PIX (CPF):")
-        st.code("01969189606", language=None)
-        
-        st.write("### 2. Envie o comprovante:")
-        msg = f"Olá! Acabei de fazer o PIX da rifa (R${total}). Números: {', '.join(map(str, nums))}. Segue o comprovante:"
-        st.link_button("ENVIAR COMPROVANTE NO WHATSAPP", f"https://wa.me/5537991360517?text={msg}")
-    else:
-        st.info("Selecione os números na aba 'Números' para prosseguir.")
+    <div id="draw-screen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:1000; padding-top: 20%;">
+        <h1 id="draw-number" style="font-size: 100px;">0</h1>
+    </div>
 
-st.divider()
-st.caption("Site de rifas - Sistema Profissional")
+    <script>
+        let selectedNumber = null;
+        let sold = JSON.parse(localStorage.getItem('sold')) || {};
+
+        function renderNumbers() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            for(let i = 1; i <= 100; i++) {
+                const div = document.createElement('div');
+                div.className = 'number' + (sold[i] ? ' sold' : '');
+                div.innerText = i;
+                div.onclick = () => { if(!sold[i]) selectNumber(i, div); };
+                grid.appendChild(div);
+            }
+        }
+
+        function selectNumber(num, el) {
+            selectedNumber = num;
+            document.querySelectorAll('.number').forEach(n => n.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('checkout').style.display = 'block';
+        }
+
+        function confirmPurchase() {
+            const name = document.getElementById('name').value;
+            if(!name) return alert('Preencha o nome');
+            sold[selectedNumber] = { name, phone: document.getElementById('phone').value };
+            localStorage.setItem('sold', JSON.stringify(sold));
+            document.getElementById('checkout').style.display = 'none';
+            document.getElementById('pix-area').style.display = 'block';
+            renderNumbers();
+        }
+
+        function copyPix() { navigator.clipboard.writeText('01969189606'); alert('Chave copiada!'); }
+
+        function showAdmin() { document.getElementById('admin-panel').style.display = 'block'; }
+
+        function loginAdmin() {
+            if(document.getElementById('admin-pass').value === 'brayan2905') {
+                document.getElementById('admin-content').style.display = 'block';
+                let report = 'Compradores: <br>';
+                for(let n in sold) report += `Número ${n}: ${sold[n].name} <br>`;
+                document.getElementById('report').innerHTML = report;
+            } else { alert('Senha incorreta'); }
+        }
+
+        function startDraw() {
+            document.getElementById('draw-screen').style.display = 'block';
+            let count = 0;
+            const interval = setInterval(() => {
+                document.getElementById('draw-number').innerText = Math.floor(Math.random() * 100) + 1;
+                count++;
+                if(count > 30) {
+                    clearInterval(interval);
+                    const winner = Math.floor(Math.random() * 100) + 1;
+                    document.getElementById('draw-number').innerText = `Ganhador: ${winner} - ${sold[winner]?.name || 'Sem dono'}`;
+                }
+            }, 1000);
+        }
+
+        renderNumbers();
+    </script>
+</body>
+</html>
